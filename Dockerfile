@@ -1,13 +1,22 @@
- 
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.1 AS build-env
-WORKDIR /app
-EXPOSE 5000
-COPY . ./
-RUN dotnet restore helloWorld/helloWorld.csproj
-WORKDIR /app/helloWorld/ 
-RUN dotnet publish -c Release -o out
+#See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
-FROM mcr.microsoft.com/dotnet/core/runtime:3.1
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-buster-slim AS base
 WORKDIR /app
-COPY --from=build-env /app/helloWorld/out . 
+EXPOSE 80
+EXPOSE 443
+
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1-buster AS build
+WORKDIR /src
+COPY ["helloWorld.csproj", ""]
+RUN dotnet restore "./helloWorld.csproj"
+COPY . .
+WORKDIR "/src/."
+RUN dotnet build "helloWorld.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "helloWorld.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "helloWorld.dll"]
